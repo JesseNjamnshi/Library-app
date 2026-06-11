@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h1>Library System</h1>
+
+<h2>Login</h2>
+<input id="username" placeholder="Username">
+<input id="password" type="password" placeholder="Password">
+<button onclick="login()">Login</button>
+<p id="status"></p>
+
+<h2>Books</h2>
+<button onclick="getBooks()">Load Books</button>
+<ul id="books"></ul>
+
+<h3>Add Book</h3>
+<input id="title" placeholder="Title">
+<input id="author" placeholder="Author">
+<input id="genre" placeholder="Genre">
+<input id="copies" placeholder="Copies">
+<button onclick="addBook()">Add</button>
+
+<h2>Members</h2>
+<button onclick="getMembers()">Load Members</button>
+<ul id="members"></ul>
+
+<h3>Add Member</h3>
+<input id="mname" placeholder="Name">
+<input id="memail" placeholder="Email">
+<button onclick="addMember()">Add</button>
+
+<h2>Borrow Book</h2>
+<input id="member_id" placeholder="Member ID">
+<input id="book_id" placeholder="Book ID">
+<button onclick="borrow()">Borrow</button>
+
+<h2>Loans</h2>
+<button onclick="getLoans()">Load Loans</button>
+
+<h3>Active Loans</h3>
+<ul id="activeLoans"></ul>
+
+<h3>Returned Loans</h3>
+<ul id="returnedLoans"></ul>
+
+<h2>Return Book</h2>
+<input id="loan_id" placeholder="Loan ID">
+<button onclick="returnBook()">Return</button>
+
+<h2>Reports</h2>
+<button onclick="report()">Popular Books</button>
+<ul id="report"></ul>
+
+<button onclick="getFines()">Fines</button>
+<ul id="fines"></ul>
+
+<h2>Logs</h2>
+<button onclick="getLogs()">View Logs</button>
+<ul id="logs"></ul>
+
+<h2>Event</h2>
+<button onclick="runEvent()">Run Event</button>
+
+<script>
+
+// LOGIN
+async function login(){
+    const res = await fetch("/login", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+            username: document.getElementById("username").value,
+            password: document.getElementById("password").value
+        })
+    });
+
+    document.getElementById("status").innerText = await res.text();
+}
+
+// BOOKS
+async function getBooks(){
+    const res = await fetch("/books");
+    const data = await res.json();
+
+    const list = document.getElementById("books");
+    list.innerHTML = "";
+
+   data.forEach(b => {
+    const safeTitle = b.title.replace(/'/g, "\\'");
+    const safeAuthor = b.author.replace(/'/g, "\\'");
+    const safeGenre = b.genre ? b.genre.replace(/'/g, "\\'") : "";
+
+    list.innerHTML += `
+        <li>
+            ${b.title} by ${b.author} (Genre: ${b.genre}, Copies: ${b.total_copies})
+            <button onclick="updateBook(${b.book_id}, '${safeTitle}', '${safeAuthor}', '${safeGenre}', ${b.total_copies})">Update</button>
+            <button onclick="del(${b.book_id})">Delete</button>
+        </li>
+    `;
+});
+}
+
+async function addBook(){
+    await fetch("/books",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+            title: title.value,
+            author: author.value,
+            genre: genre.value,
+            total_copies: copies.value
+        })
+    });
+    getBooks();
+}
+
+async function del(id){
+    await fetch("/books/"+id,{method:"DELETE"});
+    getBooks();
+}
+
+async function updateBook(id, title, author, genre, copies){
+    const newTitle = prompt("New title:", title);
+    const newAuthor = prompt("New author:", author);
+    const newGenre = prompt("New genre:", genre);
+    const newCopies = prompt("New number of copies:", copies);
+
+    // prevent empty values
+    if (!newTitle || !newAuthor || !newCopies) {
+        alert("All fields are required");
+        return;
+    }
+
+    await fetch("/books/" + id, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            title: newTitle,
+            author: newAuthor,
+            genre: newGenre,
+            total_copies: parseInt(newCopies)
+        })
+    });
+
+    getBooks();
+}
+
+// MEMBERS
+async function getMembers(){
+    const res = await fetch("/members");
+    const data = await res.json();
+
+    members.innerHTML="";
+    data.forEach(m=>{
+        members.innerHTML += `<li>${m.name}</li>`;
+    });
+}
+
+async function addMember(){
+    await fetch("/members",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+            name: mname.value,
+            email: memail.value
+        })
+    });
+}
+
+// BORROW
+async function borrow(){
+    const res = await fetch("/borrow",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+            member_id: parseInt(document.getElementById("member_id").value),
+            book_id: parseInt(document.getElementById("book_id").value)
+        })
+    });
+
+    alert(await res.text());
+}
+
+// RETURN
+async function returnBook(){
+    const res = await fetch("/return",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+            loan_id: parseInt(document.getElementById("loan_id").value)
+        })
+    });
+
+    alert(await res.text());
+}
+
+// REPORT
+async function report(){
+    const res = await fetch("/report/popular-books");
+    const data = await res.json();
+
+    const list = document.getElementById("report");
+    list.innerHTML = "";
+
+    data.forEach(x=>{
+        const li = document.createElement("li");
+        li.innerText = `Book ${x.book_id}: ${x.total}`;
+        list.appendChild(li);
+    });
+}
+
+async function getFines(){
+    const res = await fetch("/report/fines");
+    const data = await res.json();
+
+    const list = document.getElementById("fines");
+    list.innerHTML = "";
+
+    data.forEach(f=>{
+        const li = document.createElement("li");
+        li.innerText = `Loan ${f.loan_id} | Fine: $${f.fine}`;
+        list.appendChild(li);
+    });
+}
+
+// LOANS
+async function getLoans(){
+    const res = await fetch("/loans");
+    const data = await res.json();
+
+    const activeList = document.getElementById("activeLoans");
+    const returnedList = document.getElementById("returnedLoans");
+
+    activeList.innerHTML = "";
+    returnedList.innerHTML = "";
+
+    data.forEach(l=>{
+        const baseText = `Loan ${l.loan_id} | Member ${l.member_id} | Book ${l.book_id}`;
+
+        if (l.return_date === null) {
+            // ACTIVE
+            const li = document.createElement("li");
+            li.innerText = baseText;
+            activeList.appendChild(li);
+        } else {
+            // RETURNED (FORMATTED DATE)
+            const formattedDate = new Date(l.return_date).toLocaleString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit"
+            });
+
+            const li = document.createElement("li");
+            li.innerText = `${baseText} | Returned on ${formattedDate}`;
+            returnedList.appendChild(li);
+        }
+    });
+}
+
+
+// LOGS
+async function getLogs(){
+    const res = await fetch("/logs");
+    const data = await res.json();
+
+    const list = document.getElementById("logs");
+    list.innerHTML = "";
+
+    data.forEach(l=>{
+        const formattedDate = new Date(l.timestamp).toLocaleString("en-US", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+
+        const li = document.createElement("li");
+        li.innerText = `${l.action} - ${formattedDate}`;
+        list.appendChild(li);
+    });
+}
+
+async function runEvent(){
+    const res = await fetch("/run-event", { method: "POST" });
+    alert(await res.text());
+}
+
+
+</script>
+
+</body>
+</html>
